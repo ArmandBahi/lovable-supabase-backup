@@ -35,8 +35,14 @@ async function main(): Promise<void> {
   // Sign in with the user email and password
   await supabase.signInUser(config.userEmail, config.userPassword);
 
+  // Fetch the list of tables
   const tablesList = await supabase.fetchTablesList();
-  console.log('tablesList', tablesList);
+
+  // Fetch the data for each table
+  for (const table of tablesList) {
+    const data = await supabase.fetchTableRows(table);
+    console.log(`Fetched ${data.length} rows from ${table}`);
+  }
 }
 
 main().catch((err) => {
