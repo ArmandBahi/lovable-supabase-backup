@@ -1,0 +1,20 @@
+{
+  "name": "lovable-supabase-backup",
+  "version": "1.0.0",
+  "description": "Allors backups on lovable supabase projects",
+  "homepage": "https://github.com/ArmandBahi/lovable-supabase-backup#readme",
+  "bugs": {
+    "url": "https://github.com/ArmandBahi/lovable-supabase-backup/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArmandBahi/lovable-supabase-backup.git"
+  },
+  "license": "ISC",
+  "author": "ArmandBahi",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
