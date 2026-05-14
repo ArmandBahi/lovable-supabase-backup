@@ -4,6 +4,7 @@ import * as path from "path";
 import { Client } from "pg";
 
 import type { LovableSupabaseBackupConfig } from "..";
+import { createClient } from "@supabase/supabase-js";
 
 /** Fields passed to `pg` for the recover Postgres target (often Supavisor in session mode). */
 export type RecoverPgConnectionConfig = {
@@ -504,5 +505,27 @@ export class RecoverSupabaseService {
      */
     private pgIdentifierQuote(name: string): string {
         return `"${name}"`;
+    }
+
+    /**
+     * Execute the post-recovery SQL.
+     * @param sqlFilePath - The path to the SQL file to execute.
+     * @returns Promise<void>
+     */
+    public async executePostRecoverySql(sqlFilePath: string): Promise<void> {
+        // read the sql file
+        const sql = await fs.readFile(sqlFilePath, "utf8");
+        // execute the sql
+        await this.withClient(async (client) => {
+            try {
+                await client.query(sql);
+                console.log(`Executed post-recovery SQL: ${sqlFilePath}`);
+            } catch (err) {
+                const msg =
+                    err instanceof Error ? err.message : String(err);
+                console.error(`Failed to execute post-recovery SQL: ${msg}`);
+                throw err;
+            }
+        });
     }
 }
