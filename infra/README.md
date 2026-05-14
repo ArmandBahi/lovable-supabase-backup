@@ -9,6 +9,8 @@ We will use Docker Compose to run
 
 ## Supabase stack
 
+This is an alternative to the official Supabase stack documentation: https://supabase.com/docs/guides/self-hosting/docker
+
 ### Install
 
 ```sh
@@ -21,4 +23,30 @@ cp .env.example .env
 docker compose pull
 ```
 
-### Configuring and securing Supabase#
+### Configuring and securing Supabase
+
+#### Quick setup
+
+To generate secure passwords and secrets, run:
+
+```sh
+sh utils/generate-keys.sh
+```
+
+As the next step, use the following script to add the new API keys and asymmetric key pair:
+
+```sh
+sh utils/add-new-auth-keys.sh
+```
+
+#### Start the stack
+
+```sh
+docker compose -p supabase up -d
+```
+
+#### Stop the stack
+
+```sh
+docker compose -p supabase down
+```
