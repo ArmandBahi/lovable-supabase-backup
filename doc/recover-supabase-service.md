@@ -93,6 +93,17 @@ Used only on the **retry** path. It:
 
 ---
 
+## `importDataFromBackupDatas(datas)`
+
+Bulk `INSERT` per table from in-memory row arrays. For the **whole** client connection:
+
+1. Runs `SET session_replication_role = 'replica'` so **foreign keys are not checked** and inserts can run in any table order (also skips most user triggers).
+2. Restores `SET session_replication_role = 'origin'` in a **`finally`** block.
+
+If step 1 fails (common when the DB user is **not** a superuser), the method throws with a hint: use a **direct** Postgres connection as **`postgres`** on the `db` port, not only Supavisor’s pooler user.
+
+---
+
 ## Internal helpers
 
 | Helper | Purpose |

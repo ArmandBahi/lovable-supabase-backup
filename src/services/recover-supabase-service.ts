@@ -428,4 +428,81 @@ export class RecoverSupabaseService {
 
         return cleanedSqlStatements.join(";\n");
     }
+
+    /**
+     * Inserts backup rows into `public` tables in the given order.
+     *
+     * Temporarily sets **`session_replication_role = replica`** so foreign-key checks (and most
+     * table triggers) are skipped for this session — inserts can run in **arbitrary table order**.
+     * Requires sufficient privilege (typically **superuser** / role `postgres`). If `SET` fails,
+     * reconnect with a direct Postgres superuser instead of the pooler role, or reorder rows by FK.
+     *
+     * @param datas One entry per table: validated table name and row objects (column set from first row).
+     */
+    public async importDataFromBackupDatas(
+        datas: { table: string; data: Record<string, unknown>[] }[],
+    ): Promise<void> {
+        await this.withClient(async (client) => {
+            try {
+                // disable foreign key checks
+                await client.query(
+                    "SET session_replication_role = 'replica'",
+                );
+            } catch (e) {
+                const hint =
+                    e instanceof Error ? e.message : String(e);
+                throw new Error(
+                    `Cannot disable FK checks (session_replication_role=replica). Use a superuser-capable connection (e.g. user "postgres" on the direct DB port), not only the pooler role: ${hint}`,
+                );
+            }
+            try {
+                for (const { table, data } of datas) {
+                    if (data.length === 0) continue;
+
+                    this.assertSafePgIdentifier(table);
+                    const columns = Object.keys(data[0])
+                        .map(this.pgIdentifierQuote.bind(this))
+                        .join(", ");
+
+                    const valuesPlaceholders: string[] = [];
+                    const valuesArray: unknown[] = [];
+
+                    data.forEach((row) => {
+                        const rowPlaceholders: string[] = [];
+                        Object.values(row).forEach((value) => {
+                            valuesArray.push(value);
+                            rowPlaceholders.push(`$${valuesArray.length}`);
+                        });
+                        valuesPlaceholders.push(
+                            `(${rowPlaceholders.join(", ")})`,
+                        );
+                    });
+
+                    const insertSQL = `INSERT INTO public.${this.pgIdentifierQuote(table)} (${columns}) VALUES ${valuesPlaceholders.join(", ")}`;
+
+                    try {
+                        await client.query(insertSQL, valuesArray);
+                    } catch (err) {
+                        console.error('insertSQL', insertSQL);
+                        console.error('valuesArray', valuesArray);
+                        const msg =
+                            err instanceof Error ? err.message : String(err);
+                        console.error(`Failed to import data into ${table}: ${msg}`);
+                        throw err;
+                    }
+                }
+            } finally {
+                await client
+                    .query("SET session_replication_role = 'origin'")
+                    .catch(() => undefined);
+            }
+        });
+    }
+
+    /**
+     * Simple identifier quoting for PostgreSQL (danger: does not escape double-quotes within names!)
+     */
+    private pgIdentifierQuote(name: string): string {
+        return `"${name}"`;
+    }
 }

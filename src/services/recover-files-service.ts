@@ -91,4 +91,70 @@ export class RecoverFilesService {
 
         return path.join(backupsDir, backupNames[0]);
     }
+
+    /**
+     * Returns the paths to the backup files (CSV files) for the last backup folder.
+     *
+     * @returns The paths to the backup files.
+     */
+    getLastBackupFiles(): string[] {
+        const lastBackupFolder = this.getLastBackupFolder();
+        if (!fs.existsSync(lastBackupFolder)) {
+            throw new Error(`Backup folder not found: ${lastBackupFolder}`);
+        }
+
+        let dirents: fs.Dirent[] = [];
+        try {
+            dirents = fs.readdirSync(lastBackupFolder, { withFileTypes: true });
+        } catch (e) {
+            throw new Error(
+                `Failed to read backup folder: ${e instanceof Error ? e.message : String(e)}`
+            );
+        }
+
+        const csvFiles = dirents
+            .filter((d) => d.isFile() && d.name.endsWith(".csv"))
+            .map((d) => path.join(lastBackupFolder, d.name));
+
+        return csvFiles;
+    }
+
+    /**
+     * Parse a backup file (CSV) and return the data.
+     * @param file - The path to the backup file.
+     * @returns The data from the backup file.
+     */
+    parseBackupFile(file: string): Record<string, unknown>[] {
+        const content = fs.readFileSync(file, "utf-8");
+        const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
+        if (lines.length === 0) return [];
+        const headers = lines[0].split(",").map(h => h.trim());
+        const result: Record<string, unknown>[] = [];
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(",").map(v => v.trim());
+            const row: Record<string, unknown> = {};
+            for (let j = 0; j < headers.length; j++) {
+                row[headers[j]] = values[j] ?? null;
+            }
+            result.push(row);
+        }
+        return result;
+    }
+
+    /**
+     * Get the data from the last backup files.
+     * @returns The data from the last backup files.
+     */
+    getLastBackupDatas(): { table: string, data: Record<string, unknown>[] }[] {
+        const backupFiles = this.getLastBackupFiles();
+        return backupFiles.map((filePath) => {
+            // table name is file name without extension
+            const fileName = path.basename(filePath, ".csv");
+            const data = this.parseBackupFile(filePath);
+            return {
+                table: fileName,
+                data,
+            };
+        });
+    }
 }

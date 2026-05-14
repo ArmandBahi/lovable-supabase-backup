@@ -110,10 +110,6 @@ async function recoverProductionDatabase(): Promise<void> {
   const migrationsList = recoverFilesSrvc.getMigrationsList();
   console.log(`Found ${migrationsList.length} migrations in the migrations folder`);
 
-  // Get the last backup folder
-  const lastBackupFolder = recoverFilesSrvc.getLastBackupFolder();
-  console.log(`Last backup folder: ${lastBackupFolder}`);
-
   // Assert that the recover database is reachable and accepts credentials
   const isConnected = await recoverSupabaseSrvc.assertConnection();
   if (!isConnected) {
@@ -123,18 +119,24 @@ async function recoverProductionDatabase(): Promise<void> {
     console.log("Connected to the recover database");
   }
 
-  // Recreate the public schema
-  const success = await recoverSupabaseSrvc.recreatePublicSchema();
-  if (success) {
-    console.log("Public schema recreated successfully");
-  } else {
-    console.error("Failed to recreate the public schema");
-    process.exit(1);
-  }
+  // // Recreate the public schema
+  // const success = await recoverSupabaseSrvc.recreatePublicSchema();
+  // if (success) {
+  //   console.log("Public schema recreated successfully");
+  // } else {
+  //   console.error("Failed to recreate the public schema");
+  //   process.exit(1);
+  // }
 
-  // Play the migrations
-  await recoverSupabaseSrvc.playMigrations(migrationsList);
-  console.log(`Played ${migrationsList.length} migrations in the recover database`);
+  // // Play the migrations
+  // await recoverSupabaseSrvc.playMigrations(migrationsList);
+  // console.log(`Played ${migrationsList.length} migrations in the recover database`);
+
+  // Reimport the data from the backup files
+  const getLastBackupDatas = recoverFilesSrvc.getLastBackupDatas();
+  console.log(`Last backup tables: ${getLastBackupDatas.length}`);
+  await recoverSupabaseSrvc.importDataFromBackupDatas(getLastBackupDatas);
+  console.log(`Imported ${getLastBackupDatas.length} tables in the recover database`);
 }
 
 main().catch((err) => {
