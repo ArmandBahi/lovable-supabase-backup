@@ -1,6 +1,7 @@
 import * as path from "path";
 import { config as loadEnv } from "dotenv";
-import { SupabaseService } from "./supabase-service";
+import { SupabaseService } from "./services/supabase-service";
+import { BackupFilesService } from "./services/backup-files-service";
 
 const envPath = path.resolve(__dirname, "..", ".env");
 loadEnv({ path: envPath });
@@ -30,18 +31,26 @@ const config: LovableSupabaseBackupConfig = {
 
 async function main(): Promise<void> {
   // Initialize the Supabase service
-  const supabase = new SupabaseService(config);
+  const supabaseSrvc = new SupabaseService(config);
+
+  // Initialize the Backup Files service
+  const backupFilesSrvc = new BackupFilesService(config);
 
   // Sign in with the user email and password
-  await supabase.signInUser(config.userEmail, config.userPassword);
+  await supabaseSrvc.signInUser(config.userEmail, config.userPassword);
 
   // Fetch the list of tables
-  const tablesList = await supabase.fetchTablesList();
+  const tablesList = await supabaseSrvc.fetchTablesList();
 
   // Fetch the data for each table
   for (const table of tablesList) {
-    const data = await supabase.fetchTableRows(table);
-    console.log(`Fetched ${data.length} rows from ${table}`);
+    const data = await supabaseSrvc.fetchTableRows(table);
+    const success = backupFilesSrvc.writeTableCsv(table, data);
+    if (success) {
+      console.log(`Backuped ${data.length} rows from ${table}`);
+    } else {
+      console.error(`Failed to backup ${table}`);
+    }
   }
 }
 
