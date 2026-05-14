@@ -1,6 +1,6 @@
 import * as path from "path";
 import { config as loadEnv } from "dotenv";
-import { SupabaseService } from "./services/supabase-service";
+import { BackupsackupSupabaseService } from "./services/backup-supabase-service";
 import { BackupFilesService } from "./services/backup-files-service";
 
 const envPath = path.resolve(__dirname, "..", ".env");
@@ -31,7 +31,7 @@ const config: LovableSupabaseBackupConfig = {
 
 async function main(): Promise<void> {
   // Initialize the Supabase service
-  const supabaseSrvc = new SupabaseService(config);
+  const supabaseSrvc = new BackupsackupSupabaseService(config);
 
   // Initialize the Backup Files service
   const backupFilesSrvc = new BackupFilesService(config);

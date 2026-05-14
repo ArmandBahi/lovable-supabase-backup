@@ -12,7 +12,7 @@ export type FetchTableOptions = {
 /**
  * Thin wrapper around the Supabase JS client for CLI-style usage (no session persistence).
  */
-export class SupabaseService {
+export class BackupsackupSupabaseService {
   private readonly config: LovableSupabaseBackupConfig;
   private readonly client: SupabaseClient;
 
