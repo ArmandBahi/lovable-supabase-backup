@@ -146,18 +146,43 @@ export class RecoverSupabaseService {
             const resolved = this.resolveMigrationFilePath(migrationPath);
             const sql = await fs.readFile(resolved, "utf8");
 
-            await this.withClient(async (client) => {
+            const success = await this.playMigrationSql(sql, resolved);
+            if (!success) {
+                console.error(`Migration failed (${resolved})`);
+                process.exit(1);
+            }
+        }
+    }
+
+    /**
+     * Plays a migration SQL statement.
+     *
+     * @param sql - The SQL statement to play.
+     * @param resolved - The resolved path to the migration file.
+     * @returns `true` if the migration succeeded, `false` otherwise.
+     */
+    private async playMigrationSql(sql: string, resolved: string): Promise<boolean> {
+        return await this.withClient(async (client) => {
+            try {
+                await client.query(sql);
+                return true;
+            } catch (err) {
+                console.info(`SQL Statement failed, trying without inserts: ${resolved}`);
+
+                // Essaye en passant par cleanSqlStatements
+                const cleanSql = this.cleanSqlStatements(sql);
                 try {
-                    await client.query(sql);
-                } catch (err) {
+                    await client.query(cleanSql);
+                    return true;
+                } catch (err2) {
                     const detail =
                         err instanceof Error ? err.message : String(err);
                     throw new Error(
                         `Migration failed (${resolved}): ${detail}`,
                     );
                 }
-            });
-        }
+            }
+        });
     }
 
     /**
@@ -374,5 +399,33 @@ export class RecoverSupabaseService {
             ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
             GRANT EXECUTE ON FUNCTIONS TO service_role;
             `.trim();
+    }
+
+    /**
+     * Clean the SQL statements by removing the comments and the inserts.
+     * @param sql - The SQL statements to clean.
+     * @returns The cleaned SQL statements.
+     */
+    private cleanSqlStatements(sql: string): string {
+
+        // remove the comments
+        sql = sql.replace(/--.*$/gm, '');
+
+        // process by statement
+        const sqlStatements = sql.split(";");
+        const cleanedSqlStatements: string[] = [];
+        for (const sqlStatement of sqlStatements) {
+
+            // remove the new lines
+            let cleanedSqlStatement = sqlStatement;
+            if (cleanedSqlStatement.trim().startsWith('INSERT INTO')) {
+                break;
+            }
+
+            // add the statement to the list
+            cleanedSqlStatements.push(cleanedSqlStatement);
+        }
+
+        return cleanedSqlStatements.join(";\n");
     }
 }
