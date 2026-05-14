@@ -29,6 +29,7 @@
     "@types/n-readlines": "^1.0.0",
     "@types/node": "^22.15.0",
     "@types/parse-color": "^1.0.0",
+    "@types/pg": "^8.20.0",
     "@types/qs": "^6.9.3",
     "@types/sprintf-js": "^1.1.2",
     "@types/unzip": "^0.1.1",
@@ -40,6 +41,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "pg": "^8.20.0"
   }
 }
