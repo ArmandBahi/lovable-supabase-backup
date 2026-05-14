@@ -1,6 +1,6 @@
-# API reference — `SupabaseService`
+# API reference — `BackupsackupSupabaseService`
 
-Module: [`src/services/supabase-service.ts`](../src/services/supabase-service.ts)
+Module: [`src/services/backup-supabase-service.ts`](../src/services/backup-supabase-service.ts)
 
 Small wrapper around [`@supabase/supabase-js`](https://github.com/supabase/supabase-js) for one-shot CLI usage: **no persisted session**, **no auto token refresh**.
 
@@ -8,13 +8,13 @@ Small wrapper around [`@supabase/supabase-js`](https://github.com/supabase/supab
 
 ## Related configuration type
 
-`SupabaseService` is constructed with **`LovableSupabaseBackupConfig`** (exported from [`src/index.ts`](../src/index.ts)).
+`BackupsackupSupabaseService` is constructed with **`LovableSupabaseBackupConfig`** (exported from [`src/index.ts`](../src/index.ts)).
 
 | Field | Type | Used by this service |
 |--------|------|----------------------|
 | `url` | `string` | `createClient` base URL (e.g. `https://<ref>.supabase.co`) |
 | `anonKey` | `string` | Supabase anon / publishable key |
-| `userEmail` | `string` | Not read by `SupabaseService`; callers pass credentials to `signInUser` |
+| `userEmail` | `string` | Not read by `BackupsackupSupabaseService`; callers pass credentials to `signInUser` |
 | `userPassword` | `string` | Same as above |
 | `tablesListView` | `string` | Name of the Postgres **view** passed to `fetchTablesList()` |
 
@@ -34,12 +34,12 @@ Optional arguments for `fetchTableRows`.
 
 ---
 
-## Class: `SupabaseService`
+## Class: `BackupsackupSupabaseService`
 
 ### Constructor
 
 ```ts
-new SupabaseService(config: LovableSupabaseBackupConfig)
+new BackupsackupSupabaseService(config: LovableSupabaseBackupConfig)
 ```
 
 Creates an internal `SupabaseClient` with:
@@ -113,7 +113,7 @@ fetchTablesList(): Promise<string[]>
 ## Usage sketch
 
 ```ts
-const supabase = new SupabaseService(config);
+const supabase = new BackupsackupSupabaseService(config);
 await supabase.signInUser(config.userEmail, config.userPassword);
 const tables = await supabase.fetchTablesList();
 for (const table of tables) {

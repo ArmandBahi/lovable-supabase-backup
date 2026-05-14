@@ -2,13 +2,13 @@
 
 Module: [`src/services/backup-files-service.ts`](../src/services/backup-files-service.ts)
 
-Handles **on-disk backup layout**: timestamped run folders under the package `backups` directory and **CSV** export per table.
+Handles **on-disk backup layout**: timestamped run folders under the package `backups` directory and **JSON** export per table.
 
 ---
 
 ## Related configuration type
 
-Constructor accepts **`LovableSupabaseBackupConfig`** from [`src/index.ts`](../src/index.ts). The service **stores** this object for future use; current **CSV** logic does not read individual fields from it.
+Constructor accepts **`LovableSupabaseBackupConfig`** from [`src/index.ts`](../src/index.ts). The service **stores** this object for future use; current **JSON** write logic does not read individual fields from it.
 
 ---
 
@@ -19,9 +19,11 @@ Constructor accepts **`LovableSupabaseBackupConfig`** from [`src/index.ts`](../s
 | `<packageRoot>/backups/` | Root backup directory (resolved from compiled output: `../../backups` relative to `dist/services`) |
 | `<packageRoot>/backups/YYYY-MM-DD_HH-mm-ss/` | One folder per run (local date/time when the service is constructed) |
 
-Each successful `writeTableCsv` creates:
+Each successful `writeTableJson` creates:
 
-`<activeRunFolder>/<sanitizedTableName>.csv`
+`<activeRunFolder>/<sanitizedTableName>.json`
+
+File content is one **JSON array** of row objects (`[]` when there are no rows), UTF-8, compact `JSON.stringify` plus a trailing newline.
 
 ---
 
@@ -50,28 +52,21 @@ new BackupFilesService(config: LovableSupabaseBackupConfig)
 
 ---
 
-### `writeTableCsv(tableName, data)`
+### `writeTableJson(tableName, data)`
 
 ```ts
-writeTableCsv(tableName: string, data: any[]): boolean
+writeTableJson(tableName: string, data: any[]): boolean
 ```
 
 | Parameter | Description |
 |-----------|-------------|
 | `tableName` | Logical table name; used to build the filename after sanitization (non-alphanumeric → `_`, empty → `table`) |
-| `data` | Row objects; serialized as CSV rows |
+| `data` | Row objects; serialized with `JSON.stringify` as one array |
 
 **Returns:**
 
 - `true` — File written successfully (UTF-8)
 - `false` — No active backup folder, or any error during write (errors are swallowed; no exception)
-
-**CSV rules:**
-
-- Header = union of all object keys in **first-seen order** across rows
-- `null` / `undefined` → empty field
-- Objects / arrays → `JSON.stringify` then CSV escaping
-- RFC 4180-style quoting when needed (`"`, `,`, CR/LF)
 
 ---
 
@@ -85,7 +80,6 @@ These are **not** part of the public API; listed for behavior transparency.
 | `removePreviousBackups()` | Delete old run folders beyond retention |
 | `removeDirSync(dir)` | Recursive directory delete |
 | `safeFileBaseName(tableName)` | Filename-safe segment |
-| `cellToCsvField` / `csvEscapeField` / `rowsToCsv` | CSV serialization |
 
 ---
 
@@ -95,7 +89,7 @@ These are **not** part of the public API; listed for behavior transparency.
 const files = new BackupFilesService(config);
 for (const table of tables) {
   const rows = await supabase.fetchTableRows(table);
-  if (!files.writeTableCsv(table, rows)) {
+  if (!files.writeTableJson(table, rows)) {
     console.error(`Failed to write ${table}`);
   }
 }
