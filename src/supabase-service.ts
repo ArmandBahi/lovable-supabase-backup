@@ -1,9 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { LovableSupabaseBackupConfig } from ".";
 
-export type SupabaseConnectionConfig = {
-  url: string;
-  anonKey: string;
-};
 
 export type FetchTableOptions = {
   /** PostgREST select list; default `*`. */
@@ -16,10 +13,12 @@ export type FetchTableOptions = {
  * Thin wrapper around the Supabase JS client for CLI-style usage (no session persistence).
  */
 export class SupabaseService {
+  private readonly config: LovableSupabaseBackupConfig;
   private readonly client: SupabaseClient;
 
-  constructor(config: SupabaseConnectionConfig) {
-    this.client = createClient(config.url, config.anonKey, {
+  constructor(config: LovableSupabaseBackupConfig) {
+    this.config = config;
+    this.client = createClient(this.config.url, this.config.anonKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -66,5 +65,13 @@ export class SupabaseService {
       throw error;
     }
     return ((data ?? []) as unknown) as T[];
+  }
+
+  /**
+   * Fetches the list of tables from the view.
+   */
+  async fetchTablesList(): Promise<string[]> {
+    const rows = await this.fetchTableRows(this.config.tablesListView);
+    return rows.map((row: any) => row.table_name);
   }
 }

@@ -5,30 +5,38 @@ import { SupabaseService } from "./supabase-service";
 const envPath = path.resolve(__dirname, "..", ".env");
 loadEnv({ path: envPath });
 
-const url = process.env.VITE_SUPABASE_URL;
-const anonKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const userEmail = process.env.SUPABASE_USER_EMAIL;
-const userPassword = process.env.SUPABASE_USER_PASSWORD;
+export type LovableSupabaseBackupConfig = {
+  url: string;
+  anonKey: string;
+  userEmail: string;
+  userPassword: string;
+  tablesListView: string;
+};
 
-const TEST_TABLE = "profiles";
-
-async function main(): Promise<void> {
-  if (!url || !anonKey) {
-    console.error(
-      "Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY (see .env.sample).",
-    );
+for (const key of ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_USER_EMAIL", "SUPABASE_USER_PASSWORD", "TABLES_LIST_VIEW"]) {
+  if (!process.env[key]) {
+    console.error(`Missing ${key} in .env file.`);
     process.exit(1);
   }
+}
 
-  const supabase = new SupabaseService({ url, anonKey });
+const config: LovableSupabaseBackupConfig = {
+  url: process.env.VITE_SUPABASE_URL as string,
+  anonKey: process.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
+  userEmail: process.env.SUPABASE_USER_EMAIL as string,
+  userPassword: process.env.SUPABASE_USER_PASSWORD as string,
+  tablesListView: process.env.TABLES_LIST_VIEW as string,
+};
 
-  if (userEmail && userPassword) {
-    await supabase.signInUser(userEmail, userPassword);
-    console.log("Signed in with SUPABASE_USER_* credentials.");
-  }
+async function main(): Promise<void> {
+  // Initialize the Supabase service
+  const supabase = new SupabaseService(config);
 
-  const rows = await supabase.fetchTableRows(TEST_TABLE, { limit: 5 });
-  console.log(`Sample rows from "${TEST_TABLE}" (limit 5):`, rows);
+  // Sign in with the user email and password
+  await supabase.signInUser(config.userEmail, config.userPassword);
+
+  const tablesList = await supabase.fetchTablesList();
+  console.log('tablesList', tablesList);
 }
 
 main().catch((err) => {
