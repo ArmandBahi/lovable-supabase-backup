@@ -15,6 +15,28 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  }
+    "start": "./node_modules/.bin/tsc && node dist/index.js",
+    "build": "./node_modules/.bin/tsc",
+    "lint": "./node_modules/.bin/tslint --project tsconfig.json src/**/*.ts"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.7.7",
+    "@babel/core": "^7.7.7",
+    "@babel/plugin-proposal-class-properties": "^7.7.4",
+    "@babel/preset-env": "^7.7.7",
+    "@babel/preset-typescript": "^7.7.7",
+    "@types/archiver": "^3.0.0",
+    "@types/n-readlines": "^1.0.0",
+    "@types/node": "^22.15.0",
+    "@types/parse-color": "^1.0.0",
+    "@types/qs": "^6.9.3",
+    "@types/sprintf-js": "^1.1.2",
+    "@types/unzip": "^0.1.1",
+    "@types/uuid": "^8.0.0",
+    "@types/yargs": "^13.0.4",
+    "jsdoc-babel": "^0.5.0",
+    "tslint": "^5.20.1",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {}
 }
