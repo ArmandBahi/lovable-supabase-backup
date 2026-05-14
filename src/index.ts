@@ -87,7 +87,7 @@ async function backupProductionDatabase(): Promise<void> {
   // Fetch the data for each table
   for (const table of tablesList) {
     const data = await supabaseSrvc.fetchTableRows(table);
-    const success = backupFilesSrvc.writeTableCsv(table, data);
+    const success = backupFilesSrvc.writeTableJson(table, data);
     if (success) {
       console.log(`Backuped ${data.length} rows from ${table}`);
     } else {
@@ -119,18 +119,18 @@ async function recoverProductionDatabase(): Promise<void> {
     console.log("Connected to the recover database");
   }
 
-  // // Recreate the public schema
-  // const success = await recoverSupabaseSrvc.recreatePublicSchema();
-  // if (success) {
-  //   console.log("Public schema recreated successfully");
-  // } else {
-  //   console.error("Failed to recreate the public schema");
-  //   process.exit(1);
-  // }
+  // Recreate the public schema
+  const success = await recoverSupabaseSrvc.recreatePublicSchema();
+  if (success) {
+    console.log("Public schema recreated successfully");
+  } else {
+    console.error("Failed to recreate the public schema");
+    process.exit(1);
+  }
 
-  // // Play the migrations
-  // await recoverSupabaseSrvc.playMigrations(migrationsList);
-  // console.log(`Played ${migrationsList.length} migrations in the recover database`);
+  // Play the migrations
+  await recoverSupabaseSrvc.playMigrations(migrationsList);
+  console.log(`Played ${migrationsList.length} migrations in the recover database`);
 
   // Reimport the data from the backup files
   const getLastBackupDatas = recoverFilesSrvc.getLastBackupDatas();

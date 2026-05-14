@@ -116,4 +116,4 @@ If step 1 fails (common when the DB user is **not** a superuser), the method thr
 ## See also
 
 - [`recover-files-service.md`](./recover-files-service.md) — migration file listing, latest backup folder
-- [`backup-supabase-service.md`](./backup-supabase-service.md) — production CSV export over the Supabase JS client
+- [`backup-supabase-service.md`](./backup-supabase-service.md) — production JSON export over the Supabase JS client

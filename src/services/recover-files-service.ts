@@ -93,7 +93,7 @@ export class RecoverFilesService {
     }
 
     /**
-     * Returns the paths to the backup files (CSV files) for the last backup folder.
+     * Returns the paths to the backup files (JSON files) for the last backup folder.
      *
      * @returns The paths to the backup files.
      */
@@ -112,33 +112,36 @@ export class RecoverFilesService {
             );
         }
 
-        const csvFiles = dirents
-            .filter((d) => d.isFile() && d.name.endsWith(".csv"))
+        const jsonFiles = dirents
+            .filter((d) => d.isFile() && d.name.endsWith(".json"))
             .map((d) => path.join(lastBackupFolder, d.name));
 
-        return csvFiles;
+        return jsonFiles;
     }
 
     /**
-     * Parse a backup file (CSV) and return the data.
+     * Parse a backup file (JSON array of row objects) and return the data.
      * @param file - The path to the backup file.
      * @returns The data from the backup file.
      */
     parseBackupFile(file: string): Record<string, unknown>[] {
-        const content = fs.readFileSync(file, "utf-8");
-        const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
-        if (lines.length === 0) return [];
-        const headers = lines[0].split(",").map(h => h.trim());
-        const result: Record<string, unknown>[] = [];
-        for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(",").map(v => v.trim());
-            const row: Record<string, unknown> = {};
-            for (let j = 0; j < headers.length; j++) {
-                row[headers[j]] = values[j] ?? null;
-            }
-            result.push(row);
+        const content = fs.readFileSync(file, "utf-8").trim();
+        if (content.length === 0) {
+            return [];
         }
-        return result;
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(content);
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            throw new Error(`Invalid JSON in backup file ${file}: ${msg}`);
+        }
+        if (!Array.isArray(parsed)) {
+            throw new Error(
+                `Backup file ${file} must contain a JSON array of row objects`,
+            );
+        }
+        return parsed as Record<string, unknown>[];
     }
 
     /**
@@ -149,7 +152,7 @@ export class RecoverFilesService {
         const backupFiles = this.getLastBackupFiles();
         return backupFiles.map((filePath) => {
             // table name is file name without extension
-            const fileName = path.basename(filePath, ".csv");
+            const fileName = path.basename(filePath, ".json");
             const data = this.parseBackupFile(filePath);
             return {
                 table: fileName,

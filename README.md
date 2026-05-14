@@ -2,7 +2,7 @@
 
 Small **Node** tool for **Lovable / Supabase** projects.
 
-- **Backup mode** — connects with app credentials (like the front end), lists public tables, writes each table to a **CSV** under `backups/<date-time>/`. Older runs are trimmed automatically.
+- **Backup mode** — connects with app credentials (like the front end), lists public tables, writes each table to a **JSON** file (single array of row objects) under `backups/<date-time>/`. Older runs are trimmed automatically.
 - **Recover mode** (self-hosted DR drills) — connects with **`pg`** to your recover Postgres, optionally resets **`public`**, then replays **`MIGRATIONS_FOLDER`** SQL in filename order.
 
 ## What you need on Supabase (backup mode)
@@ -19,7 +19,7 @@ cp .env.sample .env
 
 Fill `.env` (see also [`.env.sample`](./.env.sample)):
 
-- **Modes:** set **`BACKUP_MODE=true`** for CSV export from the cloud project, or **`RECOVER_MODE=true`** for local Postgres replay (set the other to `false`). If both are `false`, `main` exits without work; if both are `true`, only backup runs (`index.ts` order).
+- **Modes:** set **`BACKUP_MODE=true`** for JSON export from the cloud project, or **`RECOVER_MODE=true`** for local Postgres replay (set the other to `false`). If both are `false`, `main` exits without work; if both are `true`, only backup runs (`index.ts` order).
 - **Backup (production API):** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_USER_EMAIL`, `SUPABASE_USER_PASSWORD`, `TABLES_LIST_VIEW`
 - **Recover (Postgres):** `MIGRATIONS_FOLDER` (e.g. path to your app’s `supabase` directory or its `migrations` folder), `RECOVER_PG_HOST`, `RECOVER_PG_PORT`, `RECOVER_PG_USER` (through **Supavisor** use `postgres.<POOLER_TENANT_ID>`), `RECOVER_PG_PASSWORD`, `RECOVER_PG_DATABASE`
 
@@ -70,6 +70,6 @@ Details, pooler vs direct Postgres, and limitations of the SQL retry path are do
 
 | Topic | Doc |
 |-------|-----|
-| Backup via Supabase JS + CSV writer | [`doc/backup-supabase-service.md`](doc/backup-supabase-service.md), [`doc/backup-files-services.md`](doc/backup-files-services.md) |
+| Backup via Supabase JS + JSON files | [`doc/backup-supabase-service.md`](doc/backup-supabase-service.md), [`doc/backup-files-services.md`](doc/backup-files-services.md) |
 | Recover via `pg` + migrations | [`doc/recover-supabase-service.md`](doc/recover-supabase-service.md) |
 | Recover file listing / backup folder | [`doc/recover-files-service.md`](doc/recover-files-service.md) |

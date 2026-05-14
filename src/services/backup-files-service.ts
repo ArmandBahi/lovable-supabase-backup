@@ -19,22 +19,22 @@ export class BackupFilesService {
     }
 
     /**
-     * Writes the data of a table to a CSV file in the active backup folder.
-     * @param tableName - Logical table or view name (used for the `.csv` filename)
+     * Writes the data of a table to a JSON file in the active backup folder.
+     * Content is a single JSON array of row objects (PostgREST-shaped values).
+     * @param tableName - Logical table or view name (used for the `.json` filename)
      * @param data - Rows to serialize
      * @returns `true` if the file was written successfully; `false` if there is no active folder or write failed
      */
-    writeTableCsv(tableName: string, data: any[]): boolean {
+    writeTableJson(tableName: string, data: any[]): boolean {
         if (this.activeBackupFolder == null) {
             return false;
         }
         try {
             const filePath = path.join(
                 this.activeBackupFolder,
-                `${this.safeFileBaseName(tableName)}.csv`,
+                `${this.safeFileBaseName(tableName)}.json`,
             );
-            const rows = data as Record<string, unknown>[];
-            const content = this.rowsToCsv(rows);
+            const content = JSON.stringify(data) + "\n";
             fs.writeFileSync(filePath, content, { encoding: "utf8" });
             return true;
         } catch {
@@ -93,8 +93,8 @@ export class BackupFilesService {
         }
     }
 
-    /** 
-     * Recursively deletes a directory and its contents. 
+    /**
+     * Recursively deletes a directory and its contents.
      */
     private removeDirSync(dir: string): void {
         if (!fs.existsSync(dir)) {
@@ -119,61 +119,5 @@ export class BackupFilesService {
     private safeFileBaseName(tableName: string): string {
         const base = tableName.replace(/[^a-zA-Z0-9_-]/g, "_");
         return base.length > 0 ? base : "table";
-    }
-
-    /**
-     * Converts a single cell value to a CSV field string (empty for null/undefined).
-     * Objects and arrays are JSON-stringified then escaped.
-     * @param value - Cell value from a row
-     * @returns Field text ready to join with commas (quotes applied via {@link csvEscapeField} when needed)
-     */
-    private cellToCsvField(value: unknown): string {
-        if (value === null || value === undefined) {
-            return "";
-        }
-        if (typeof value === "object") {
-            return this.csvEscapeField(JSON.stringify(value));
-        }
-        return this.csvEscapeField(String(value));
-    }
-
-    /**
-     * Applies RFC 4180-style quoting: wraps in double quotes and doubles internal quotes
-     * when the string contains `"`, `,`, CR, or LF.
-     * @param raw - Unquoted field content
-     * @returns Escaped field (quoted or plain)
-     */
-    private csvEscapeField(raw: string): string {
-        if (/[",\r\n]/.test(raw)) {
-            return `"${raw.replace(/"/g, '""')}"`;
-        }
-        return raw;
-    }
-
-    /**
-     * Builds a full CSV document: header row from the union of all row keys (first-seen order),
-     * then one line per row. Empty input returns an empty string.
-     * @param rows - Tabular data as plain objects
-     * @returns UTF-8 CSV text including a trailing newline on non-empty output
-     */
-    private rowsToCsv(rows: Record<string, unknown>[]): string {
-        if (rows.length === 0) {
-            return "";
-        }
-        const columnOrder: string[] = [];
-        const seen = new Set<string>();
-        for (const row of rows) {
-            for (const key of Object.keys(row)) {
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    columnOrder.push(key);
-                }
-            }
-        }
-        const header = columnOrder.map((c) => this.csvEscapeField(c)).join(",");
-        const lines = rows.map((row) =>
-            columnOrder.map((col) => this.cellToCsvField(row[col])).join(","),
-        );
-        return [header, ...lines].join("\n") + "\n";
     }
 }
