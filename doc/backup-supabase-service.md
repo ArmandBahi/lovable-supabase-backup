@@ -1,6 +1,6 @@
 # API reference — `BackupsackupSupabaseService`
 
-Module: [`src/services/supabase-service.ts`](../src/services/supabase-service.ts)
+Module: [`src/services/backup-supabase-service.ts`](../src/services/backup-supabase-service.ts)
 
 Small wrapper around [`@supabase/supabase-js`](https://github.com/supabase/supabase-js) for one-shot CLI usage: **no persisted session**, **no auto token refresh**.
 
