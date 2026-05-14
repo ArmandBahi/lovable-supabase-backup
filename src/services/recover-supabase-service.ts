@@ -327,78 +327,6 @@ export class RecoverSupabaseService {
             GRANT USAGE ON SCHEMA public TO postgres;
 
             GRANT USAGE ON SCHEMA public TO service_role;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT ALL ON TABLES TO anon;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT ALL ON TABLES TO authenticated;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT ALL ON TABLES TO postgres;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT ALL ON TABLES TO service_role;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT ALL ON TABLES TO anon;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT ALL ON TABLES TO authenticated;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT ALL ON TABLES TO postgres;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT ALL ON TABLES TO service_role;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT ALL ON SEQUENCES TO anon;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT ALL ON SEQUENCES TO authenticated;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT ALL ON SEQUENCES TO postgres;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT ALL ON SEQUENCES TO service_role;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT ALL ON SEQUENCES TO anon;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT ALL ON SEQUENCES TO authenticated;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT ALL ON SEQUENCES TO postgres;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT ALL ON SEQUENCES TO service_role;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT EXECUTE ON FUNCTIONS TO anon;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT EXECUTE ON FUNCTIONS TO authenticated;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT EXECUTE ON FUNCTIONS TO postgres;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-            GRANT EXECUTE ON FUNCTIONS TO service_role;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT EXECUTE ON FUNCTIONS TO anon;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT EXECUTE ON FUNCTIONS TO authenticated;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT EXECUTE ON FUNCTIONS TO postgres;
-
-            ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-            GRANT EXECUTE ON FUNCTIONS TO service_role;
             `.trim();
     }
 
@@ -505,6 +433,37 @@ export class RecoverSupabaseService {
      */
     private pgIdentifierQuote(name: string): string {
         return `"${name}"`;
+    }
+
+    /**
+     * Execute the grants SQL.
+     * @returns Promise<void>
+     */
+    public async executeGrants(): Promise<void> {
+        const sql = `
+            GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+            GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+            GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+            GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+
+            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+            GRANT ALL ON TABLES TO anon, authenticated, service_role;
+            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+            GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+            ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+            GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
+        `;
+        await this.withClient(async (client) => {
+            try {
+                await client.query(sql);
+                console.log('Grants successfully executed.');
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.error(`Failed to execute grants SQL: ${msg}`);
+                throw err;
+            }
+        });
     }
 
     /**

@@ -135,6 +135,10 @@ async function recoverProductionDatabase(): Promise<void> {
   await recoverSupabaseSrvc.playMigrations(migrationsList);
   console.log(`Played ${migrationsList.length} migrations in the recover database`);
 
+  // Execute the grants
+  await recoverSupabaseSrvc.executeGrants();
+  console.log("Grants successfully executed");
+
   // Reimport the data from the backup files
   const getLastBackupDatas = recoverFilesSrvc.getLastBackupDatas();
   console.log(`Last backup tables: ${getLastBackupDatas.length}`);
