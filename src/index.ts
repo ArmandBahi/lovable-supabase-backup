@@ -63,7 +63,8 @@ const config: LovableSupabaseBackupConfig = {
 async function main(): Promise<void> {
   if (config.backupMode) {
     await backupProductionDatabase();
-  } else if (config.recoverMode) {
+  }
+  if (config.recoverMode) {
     await recoverProductionDatabase();
   }
 }
