@@ -22,6 +22,7 @@ export type LovableSupabaseBackupConfig = {
   recoverPgUser: string;
   recoverPgPassword: string;
   recoverPgDatabase: string;
+  postRecoverySql?: string;
 };
 
 for (const key of [
@@ -58,12 +59,14 @@ const config: LovableSupabaseBackupConfig = {
   recoverPgUser: process.env.RECOVER_PG_USER as string,
   recoverPgPassword: process.env.RECOVER_PG_PASSWORD as string,
   recoverPgDatabase: process.env.RECOVER_PG_DATABASE as string,
+  postRecoverySql: process.env.POST_RECOVERY_SQL as string | undefined,
 };
 
 async function main(): Promise<void> {
   if (config.backupMode) {
     await backupProductionDatabase();
-  } else if (config.recoverMode) {
+  }
+  if (config.recoverMode) {
     await recoverProductionDatabase();
   }
 }
@@ -137,6 +140,10 @@ async function recoverProductionDatabase(): Promise<void> {
   console.log(`Last backup tables: ${getLastBackupDatas.length}`);
   await recoverSupabaseSrvc.importDataFromBackupDatas(getLastBackupDatas);
   console.log(`Imported ${getLastBackupDatas.length} tables in the recover database`);
+
+  if (config.postRecoverySql) {
+    await recoverSupabaseSrvc.executePostRecoverySql(config.postRecoverySql);
+  }
 }
 
 main().catch((err) => {
