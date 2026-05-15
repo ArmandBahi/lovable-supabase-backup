@@ -6,7 +6,7 @@ export class BackupFilesService {
     private readonly config: LovableSupabaseBackupConfig;
     private readonly backupsDir = path.resolve(__dirname, "../../backups");
     private activeBackupFolder: string | null = null;
-    private previousBackupFoldersToKeep: number = 5;
+    private previousBackupFoldersToKeep: number = 10;
 
     constructor(config: LovableSupabaseBackupConfig) {
         this.config = config;
