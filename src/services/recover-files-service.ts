@@ -168,6 +168,27 @@ export class RecoverFilesService {
     }
 
     /**
+     * Replace user IDs in backup datasets according to a `backupUserId -> recoverUserId` mapping.
+     *
+     * The replacement is value-based:
+     * - whenever a string value exactly matches a key from `userIdMapping`, it is replaced.
+     * - non-string values are left unchanged.
+     *
+     * @param datas - Parsed backup datasets grouped by table.
+     * @param userIdMapping - Mapping from source backup user IDs to recover DB user IDs.
+     * @returns A new dataset array with remapped values.
+     */
+    applyUserIdMappingToBackupDatas(
+        datas: { table: string; data: Record<string, unknown>[] }[],
+        userIdMapping: Record<string, string>,
+    ): { table: string; data: Record<string, unknown>[] }[] {
+        return datas.map(({ table, data }) => ({
+            table,
+            data: data.map((row) => this.applyUserIdMappingToRow(row, userIdMapping)),
+        }));
+    }
+
+    /**
      * Get the users from the last backup.
      * @returns The users from the last backup.
      */
@@ -181,5 +202,23 @@ export class RecoverFilesService {
             throw new Error(`Users backup path is not a file: ${usersBackupPath}`);
         }
         return this.parseBackupFile(usersBackupPath);
+    }
+
+    /**
+     * Apply user ID mapping on one row object.
+     */
+    private applyUserIdMappingToRow(
+        row: Record<string, unknown>,
+        userIdMapping: Record<string, string>,
+    ): Record<string, unknown> {
+        const mappedRow: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(row)) {
+            if (typeof value === "string" && userIdMapping[value]) {
+                mappedRow[key] = userIdMapping[value];
+            } else {
+                mappedRow[key] = value;
+            }
+        }
+        return mappedRow;
     }
 }

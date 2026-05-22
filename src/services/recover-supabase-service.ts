@@ -15,6 +15,14 @@ export type RecoverPgConnectionConfig = {
     database: string;
 };
 
+export type DbUser = {
+    id: string;
+    email: string;
+    full_name: string;
+    roles: string[];
+    created_at: string;
+}
+
 export class RecoverSupabaseService {
     private readonly config: LovableSupabaseBackupConfig;
 
@@ -196,7 +204,7 @@ export class RecoverSupabaseService {
      * @param functionUrl - Edge function URL (`.../functions/v1/list-users`)
      * @returns Existing users returned by the edge function payload (`{ users: [...] }`)
      */
-    async fetchRecoverDbExistingUsers(functionUrl: string): Promise<Record<string, unknown>[]> {
+    async fetchRecoverDbExistingUsers(functionUrl: string): Promise<DbUser[]> {
         if (
             !this.config.recoverDbUrl ||
             !this.config.recoverDbKey ||
@@ -240,7 +248,7 @@ export class RecoverSupabaseService {
         }
 
         const payload = (await response.json()) as {
-            users?: Record<string, unknown>[];
+            users?: DbUser[];
         };
         if (!Array.isArray(payload.users)) {
             throw new Error("recover list-users function returned an invalid payload");
@@ -333,6 +341,81 @@ export class RecoverSupabaseService {
                 );
             }
         }
+    }
+
+    /**
+     * Sync users from backup to the recover database by using edge functions.
+     *
+     * Flow:
+     * 1) list existing users in recover DB
+     * 2) compute users missing by email
+     * 3) create only missing users
+     *
+     * @param listUsersFunctionUrl - Edge function URL (`.../functions/v1/list-users`)
+     * @param createUserFunctionUrl - Edge function URL (`.../functions/v1/create-user`)
+     * @param backupUsers - Users loaded from `users.json`
+     * @returns Counts for logging/observability
+     */
+    async syncRecoverDbUsers(
+        listUsersFunctionUrl: string,
+        createUserFunctionUrl: string,
+        backupUsers: Record<string, unknown>[],
+    ): Promise<DbUser[]> {
+        const usersInDatabase = await this.fetchRecoverDbExistingUsers(listUsersFunctionUrl);
+        console.log(`Found ${usersInDatabase.length} users in the recover database`);
+        const usersToCreate = backupUsers.filter(
+            (user) =>
+                !usersInDatabase.some(
+                    (existingUser) => existingUser.email === user.email,
+                ),
+        );
+        console.log(`Found ${usersToCreate.length} users to create`);
+        await this.createRecoverDbUsers(createUserFunctionUrl, usersToCreate);
+        console.log(`Created ${usersToCreate.length} users in the recover database`);
+
+        // Redo a fetch to get the definitive users in the database
+        return await this.fetchRecoverDbExistingUsers(listUsersFunctionUrl);
+
+    }
+
+    /**
+     * Build an ID mapping from backup users to recover DB users, matched by email.
+     *
+     * Result format:
+     * - key: backup user id
+     * - value: recover database user id
+     */
+    buildRecoverUserIdMapping(
+        backupUsers: Record<string, unknown>[],
+        usersInDatabase: DbUser[],
+    ): Record<string, string> {
+        const recoverIdByEmail = new Map<string, string>();
+        for (const user of usersInDatabase) {
+            const email = user.email.trim().toLowerCase();
+            if (!email) {
+                continue;
+            }
+            recoverIdByEmail.set(email, user.id);
+        }
+
+        const mapping: Record<string, string> = {};
+        for (const backupUser of backupUsers) {
+            const backupId = typeof backupUser.id === "string" ? backupUser.id : "";
+            const backupEmail = typeof backupUser.email === "string"
+                ? backupUser.email.trim().toLowerCase()
+                : "";
+            if (!backupId || !backupEmail) {
+                continue;
+            }
+
+            const recoverId = recoverIdByEmail.get(backupEmail);
+            if (!recoverId) {
+                continue;
+            }
+            mapping[backupId] = recoverId;
+        }
+
+        return mapping;
     }
 
     /**

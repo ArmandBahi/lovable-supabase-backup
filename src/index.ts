@@ -151,6 +151,10 @@ async function recoverProductionDatabase(): Promise<void> {
     console.log("Connected to the recover database");
   }
 
+  /**
+   * Re-create the database
+   */
+
   // Recreate the public schema
   const success = await recoverSupabaseSrvc.recreatePublicSchema();
   if (success) {
@@ -159,10 +163,6 @@ async function recoverProductionDatabase(): Promise<void> {
     console.error("Failed to recreate the public schema");
     process.exit(1);
   }
-
-  /**
-   * Recover the database
-   */
 
   // Play the migrations
   await recoverSupabaseSrvc.playMigrations(migrationsList);
@@ -186,39 +186,38 @@ async function recoverProductionDatabase(): Promise<void> {
   }
 
   // Get the last backup users
+  let userIdMapping: Record<string, string> = {};
   if (config.recoverDbListUsersFunctionUrl && config.recoverDbCreateUserFunctionUrl) {
-
-    // Users already in the database
-    const usersInDatabase = await recoverSupabaseSrvc.fetchRecoverDbExistingUsers(
-      config.recoverDbListUsersFunctionUrl,
-    );
-    console.log(`Found ${usersInDatabase.length} users in the database`);
-
-    // Users tu send
     const lastBackupUsers = recoverFilesSrvc.getLastBackupUsers();
-    console.log(`Found ${lastBackupUsers.length} users in the last backup`);
-
-    // Users to create
-    const usersToCreate = lastBackupUsers.filter((user) => !usersInDatabase.some((u) => u.email === user.email));
-    console.log(`Found ${usersToCreate.length} users to create`);
-
-    // Create the users
-    await recoverSupabaseSrvc.createRecoverDbUsers(
+    const usersInDatabase = await recoverSupabaseSrvc.syncRecoverDbUsers(
+      config.recoverDbListUsersFunctionUrl,
       config.recoverDbCreateUserFunctionUrl,
-      usersToCreate,
+      lastBackupUsers,
     );
-    console.log(`Created ${usersToCreate.length} users in the recover database`);
+    userIdMapping = recoverSupabaseSrvc.buildRecoverUserIdMapping(
+      lastBackupUsers,
+      usersInDatabase,
+    );
+    console.log(`Built user ID mapping for ${Object.keys(userIdMapping).length} users`);
   }
 
   /**
    * Reimport the data from the backup files
    */
 
-  // Reimport the data from the backup files
+  // Get the last backup datas
   const getLastBackupDatas = recoverFilesSrvc.getLastBackupDatas();
-  console.log(`Last backup tables: ${getLastBackupDatas.length}`);
-  await recoverSupabaseSrvc.importDataFromBackupDatas(getLastBackupDatas);
-  console.log(`Imported ${getLastBackupDatas.length} tables in the recover database`);
+
+  // Apply the user ID mapping to the backup datas
+  const mappedBackupDatas = recoverFilesSrvc.applyUserIdMappingToBackupDatas(
+    getLastBackupDatas,
+    userIdMapping,
+  );
+  console.log(`Last backup tables: ${mappedBackupDatas.length}`);
+
+  // Reimport the data from the backup files
+  await recoverSupabaseSrvc.importDataFromBackupDatas(mappedBackupDatas);
+  console.log(`Imported ${mappedBackupDatas.length} tables in the recover database`);
 
   // Post recovery SQL
   if (config.postRecoverySql) {
