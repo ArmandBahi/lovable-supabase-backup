@@ -22,6 +22,7 @@ export type LovableSupabaseBackupConfig = {
   recoverPgUser: string;
   recoverPgPassword: string;
   recoverPgDatabase: string;
+  listUsersFunctionUrl?: string;
   postRecoverySql?: string;
 };
 
@@ -53,6 +54,7 @@ const config: LovableSupabaseBackupConfig = {
   userEmail: process.env.SUPABASE_USER_EMAIL as string,
   userPassword: process.env.SUPABASE_USER_PASSWORD as string,
   tablesListView: process.env.TABLES_LIST_VIEW as string,
+  listUsersFunctionUrl: process.env.LIST_USERS_FUNCTION_URL as string | undefined,
   migrationsFolder: process.env.MIGRATIONS_FOLDER as string,
   recoverPgHost: process.env.RECOVER_PG_HOST as string,
   recoverPgPort: process.env.RECOVER_PG_PORT as string,
@@ -95,6 +97,19 @@ async function backupProductionDatabase(): Promise<void> {
       console.log(`Backuped ${data.length} rows from ${table}`);
     } else {
       console.error(`Failed to backup ${table}`);
+    }
+  }
+
+  // Backup the users from the edge function
+  if (config.listUsersFunctionUrl) {
+    const users = await supabaseSrvc.fetchUsersFromEdgeFunction(
+      config.listUsersFunctionUrl,
+    );
+    const success = backupFilesSrvc.writeJsonFile("users", users);
+    if (success) {
+      console.log(`Backuped ${users.length} users from edge function`);
+    } else {
+      console.error("Failed to backup users");
     }
   }
 }

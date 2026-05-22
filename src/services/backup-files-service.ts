@@ -26,13 +26,23 @@ export class BackupFilesService {
      * @returns `true` if the file was written successfully; `false` if there is no active folder or write failed
      */
     writeTableJson(tableName: string, data: any[]): boolean {
+        return this.writeJsonFile(tableName, data);
+    }
+
+    /**
+     * Writes arbitrary JSON content in the active backup folder.
+     * @param fileBaseName - Logical filename (without extension)
+     * @param data - JSON-serializable payload
+     * @returns `true` if write succeeded
+     */
+    writeJsonFile(fileBaseName: string, data: unknown): boolean {
         if (this.activeBackupFolder == null) {
             return false;
         }
         try {
             const filePath = path.join(
                 this.activeBackupFolder,
-                `${this.safeFileBaseName(tableName)}.json`,
+                `${this.safeFileBaseName(fileBaseName)}.json`,
             );
             const content = JSON.stringify(data) + "\n";
             fs.writeFileSync(filePath, content, { encoding: "utf8" });

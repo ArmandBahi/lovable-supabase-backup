@@ -15,6 +15,7 @@ export type FetchTableOptions = {
 export class BackupsackupSupabaseService {
   private readonly config: LovableSupabaseBackupConfig;
   private readonly client: SupabaseClient;
+  private accessToken: string | null = null;
 
   constructor(config: LovableSupabaseBackupConfig) {
     this.config = config;
@@ -40,6 +41,7 @@ export class BackupsackupSupabaseService {
     if (!data.session) {
       throw new Error("signInWithPassword returned no session");
     }
+    this.accessToken = data.session.access_token;
   }
 
   /**
@@ -73,5 +75,40 @@ export class BackupsackupSupabaseService {
   async fetchTablesList(): Promise<string[]> {
     const rows = await this.fetchTableRows(this.config.tablesListView);
     return rows.map((row: any) => row.table_name);
+  }
+
+  /**
+   * Calls an authenticated edge function that returns users payload.
+   */
+  async fetchUsersFromEdgeFunction(
+    functionUrl: string,
+  ): Promise<Record<string, unknown>[]> {
+    if (!this.accessToken) {
+      throw new Error("Not authenticated. Call signInUser first.");
+    }
+
+    const response = await fetch(functionUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        apikey: this.config.anonKey,
+      },
+    });
+
+    if (!response.ok) {
+      const responseBody = await response.text();
+      throw new Error(
+        `list-users function failed (${response.status}): ${responseBody}`,
+      );
+    }
+
+    const payload = (await response.json()) as {
+      users?: Record<string, unknown>[];
+    };
+    if (!Array.isArray(payload.users)) {
+      throw new Error("list-users function returned an invalid payload");
+    }
+
+    return payload.users;
   }
 }

@@ -21,6 +21,7 @@ Fill `.env` (see also [`.env.sample`](./.env.sample)):
 
 - **Modes:** set **`BACKUP_MODE=true`** for JSON export from the cloud project, or **`RECOVER_MODE=true`** for local Postgres replay (set the other to `false`). If both are `false`, `main` exits without work; if both are `true`, only backup runs (`index.ts` order).
 - **Backup (production API):** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_USER_EMAIL`, `SUPABASE_USER_PASSWORD`, `TABLES_LIST_VIEW`
+- **Optional users backup:** `LIST_USERS_FUNCTION_URL` — if set, the script calls this authenticated edge function and writes `users.json` in the same backup run folder.
 - **Recover (Postgres):** `MIGRATIONS_FOLDER` (e.g. path to your app’s `supabase` directory or its `migrations` folder), `RECOVER_PG_HOST`, `RECOVER_PG_PORT`, `RECOVER_PG_USER` (through **Supavisor** use `postgres.<POOLER_TENANT_ID>`), `RECOVER_PG_PASSWORD`, `RECOVER_PG_DATABASE`
 
 `VITE_SUPABASE_PROJECT_ID` is optional for the script; keep it if you use it elsewhere.
