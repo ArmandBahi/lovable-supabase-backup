@@ -25,7 +25,7 @@ Throws if `backups/` does not exist or no matching folder is present.
 
 ## `getLastBackupFiles(): string[]`
 
-Lists every `*.json` file in the **newest** backup run folder (via `getLastBackupFolder()`). Returns absolute paths.
+Lists every `*.json` file in the **newest** backup run folder (via `getLastBackupFolder()`), except files excluded from table import (currently `users.json`). Returns absolute paths.
 
 Throws with the same conditions as reading that folder if it is missing or unreadable.
 
@@ -40,3 +40,24 @@ Reads a backup file: **one JSON document** that must be an **array** of row obje
 ## `getLastBackupDatas(): { table: string; data: Record<string, unknown>[] }[]`
 
 Combines `getLastBackupFiles()` with `parseBackupFile` for each path. The logical **table** name is the filename stem (basename without `.json`).
+
+---
+
+## `getLastBackupUsers(): Record<string, unknown>[]`
+
+Reads `<lastBackupFolder>/users.json` when present and returns parsed users.
+
+- Returns `[]` when `users.json` does not exist (users backup not enabled on that run).
+- Throws if the path exists but is not a file, or if JSON is invalid.
+
+---
+
+## `applyUserIdMappingToBackupDatas(datas, userIdMapping)`
+
+Applies user ID remapping to parsed backup table datasets before SQL import.
+
+- Input mapping format: `{ [backupUserId: string]: recoverUserId }`
+- For each row value:
+  - if the value is a string and exactly matches a key in `userIdMapping`, it is replaced.
+  - otherwise it is kept unchanged.
+- Returns a **new** dataset array (does not mutate input).

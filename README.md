@@ -22,6 +22,7 @@ Fill `.env` (see also [`.env.sample`](./.env.sample)):
 - **Modes:** set **`BACKUP_MODE=true`** for JSON export from the cloud project, or **`RECOVER_MODE=true`** for local Postgres replay (set the other to `false`). If both are `false`, `main` exits without work; if both are `true`, only backup runs (`index.ts` order).
 - **Backup (production API):** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_USER_EMAIL`, `SUPABASE_USER_PASSWORD`, `TABLES_LIST_VIEW`
 - **Optional users backup:** `LIST_USERS_FUNCTION_URL` — if set, the script calls this authenticated edge function and writes `users.json` in the same backup run folder.
+- **Recover users sync (target API):** `RECOVER_DB_URL`, `RECOVER_DB_KEY`, `RECOVER_DB_USER`, `RECOVER_DB_USER_ID`, `RECOVER_DB_PASSWORD`, `RECOVER_DB_LIST_USERS_FUNCTION_URL`, `RECOVER_DB_CREATE_USER_FUNCTION_URL`
 - **Recover (Postgres):** `MIGRATIONS_FOLDER` (e.g. path to your app’s `supabase` directory or its `migrations` folder), `RECOVER_PG_HOST`, `RECOVER_PG_PORT`, `RECOVER_PG_USER` (through **Supavisor** use `postgres.<POOLER_TENANT_ID>`), `RECOVER_PG_PASSWORD`, `RECOVER_PG_DATABASE`
 
 `VITE_SUPABASE_PROJECT_ID` is optional for the script; keep it if you use it elsewhere.
@@ -61,6 +62,7 @@ Backups appear in **`backups/`** at the root of this repo (one folder per run).
 1. Start your **self-hosted** Supabase stack and note `POSTGRES_PORT`, `POSTGRES_PASSWORD`, and `POOLER_TENANT_ID` from `infra/supabase/.env`.
 2. Set `RECOVER_MODE=true`, `BACKUP_MODE=false`, and the `RECOVER_PG_*` + `MIGRATIONS_FOLDER` variables (see above).
 3. The script resolves migration paths, checks connectivity, runs **`recreatePublicSchema()`**, then **`playMigrations()`**.
+4. If the recover users envs are set, it ensures a bootstrap recover user profile/role, synchronizes users from `users.json` through edge functions, and builds an internal `backupUserId -> recoverUserId` mapping for data remap before import.
 
 Details, pooler vs direct Postgres, and limitations of the SQL retry path are documented in:
 
