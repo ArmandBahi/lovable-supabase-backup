@@ -18,6 +18,11 @@ PostgreSQL (`pg` driver) helper for **disaster-recovery / drills** against a **s
 | `recoverPgUser` | `RECOVER_PG_USER` | Through **Supavisor**: `postgres.<POOLER_TENANT_ID>` — *not* plain `postgres` |
 | `recoverPgPassword` | `RECOVER_PG_PASSWORD` | `POSTGRES_PASSWORD` from the self-host `.env` |
 | `recoverPgDatabase` | `RECOVER_PG_DATABASE` | Typically `postgres` |
+| `recoverDbUrl` | `RECOVER_DB_URL` | Recover target Supabase URL used for users edge functions |
+| `recoverDbKey` | `RECOVER_DB_KEY` | Recover target publishable/anon key used for users edge functions |
+| `recoverDbUser` | `RECOVER_DB_USER` | Recover target login used to call protected users functions |
+| `recoverDbUserId` | `RECOVER_DB_USER_ID` | Recover target UUID used for bootstrap admin profile/role insertion |
+| `recoverDbPassword` | `RECOVER_DB_PASSWORD` | Password for `recoverDbUser` |
 
 ### Pooler vs direct Postgres
 
@@ -90,6 +95,46 @@ Used only on the **retry** path. It:
 - **Stops appending statements after the first line that starts with `INSERT INTO`**: anything after that `INSERT` in the same file is **not** executed on retry.
 
 **Implication:** seed `INSERT`s (e.g. default `user_roles`) should usually run on the **first** attempt. If the first attempt fails for a reason that triggers retry, inserts may be skipped or partially skipped — fix the root error or split seeds into separate migration files.
+
+---
+
+## Users helpers (recover target API)
+
+### `createRecoverDbAdminUser(email, userId)`
+
+Bootstraps a recover user in SQL (`public.profiles`) and ensures admin role in `public.user_roles` using `setUserAdmin`.
+
+### `setUserAdmin(userId)`
+
+Idempotent role grant:
+
+- `INSERT INTO public.user_roles (user_id, role) VALUES (...)`
+- `ON CONFLICT (user_id, role) DO NOTHING`
+
+### `fetchRecoverDbExistingUsers(listUsersFunctionUrl)`
+
+Authenticates to recover target (`RECOVER_DB_*`) then calls the edge function (`list-users`) with bearer token and `apikey`. Expects payload shape `{ users: DbUser[] }`.
+
+### `createRecoverDbUsers(createUserFunctionUrl, users)`
+
+Authenticates to recover target (`RECOVER_DB_*`) then calls edge function (`create-user`) once per user payload.
+
+- Missing/invalid email entries are skipped.
+- Role is selected from the allowed function roles (`manager`, `chef_projet`, `prospecteur`, `teleprospecteur`, `support`) with fallback to `support`.
+- A temporary password is generated per user to satisfy function contract.
+
+### `buildRecoverUserIdMapping(backupUsers, usersInDatabase)`
+
+Builds `{ [backupUserId]: recoverUserId }` by matching emails (normalized with trim/lowercase).
+
+### `syncRecoverDbUsers(listUsersFunctionUrl, createUserFunctionUrl, backupUsers)`
+
+Orchestrates users synchronization:
+
+1. Fetch existing recover users
+2. Compute missing users by email
+3. Create missing users
+4. Re-fetch and return definitive recover users list
 
 ---
 
