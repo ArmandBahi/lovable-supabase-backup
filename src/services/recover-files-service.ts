@@ -4,6 +4,7 @@ import path from "path";
 import type { LovableSupabaseBackupConfig } from "..";
 
 const BACKUP_FOLDER_NAME_RE = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/;
+const EXCLUDED_RECOVER_FILENAMES = new Set(["users.json"]);
 
 export class RecoverFilesService {
     private readonly config: LovableSupabaseBackupConfig;
@@ -113,7 +114,12 @@ export class RecoverFilesService {
         }
 
         const jsonFiles = dirents
-            .filter((d) => d.isFile() && d.name.endsWith(".json"))
+            .filter(
+                (d) =>
+                    d.isFile() &&
+                    d.name.endsWith(".json") &&
+                    !EXCLUDED_RECOVER_FILENAMES.has(d.name),
+            )
             .map((d) => path.join(lastBackupFolder, d.name));
 
         return jsonFiles;
