@@ -166,4 +166,20 @@ export class RecoverFilesService {
             };
         });
     }
+
+    /**
+     * Get the users from the last backup.
+     * @returns The users from the last backup.
+     */
+    getLastBackupUsers(): Record<string, unknown>[] {
+        const lastBackupFolder = this.getLastBackupFolder();
+        const usersBackupPath = path.join(lastBackupFolder, "users.json");
+        if (!fs.existsSync(usersBackupPath)) {
+            return [];
+        }
+        if (!fs.statSync(usersBackupPath).isFile()) {
+            throw new Error(`Users backup path is not a file: ${usersBackupPath}`);
+        }
+        return this.parseBackupFile(usersBackupPath);
+    }
 }

@@ -156,6 +156,186 @@ export class RecoverSupabaseService {
     }
 
     /**
+     * Create a user in the recover database.
+     * @param email - The email of the user.
+     * @param userId - The user ID.
+     */
+    async createRecoverDbAdminUser(email: string, userId: string): Promise<void> {
+        await this.withClient(async (client) => {
+            await client.query(
+                `INSERT INTO public.profiles (user_id, full_name)
+                 VALUES ($1, $2)
+                 ON CONFLICT (user_id) DO NOTHING`,
+                [userId, email],
+            );
+        });
+        await this.setUserAdmin(userId);
+    }
+
+    /**
+     * Fait un insert dans la table user_roles pour mettre le user en admin.
+     * @param userId - The user ID.
+     */
+    async setUserAdmin(userId: string): Promise<void> {
+        await this.withClient(async (client) => {
+            await client.query(
+                `INSERT INTO public.user_roles (user_id, role)
+                 VALUES ($1, 'admin'::public.app_role)
+                 ON CONFLICT (user_id, role) DO NOTHING`,
+                [userId],
+            );
+        });
+    }
+
+    /**
+     * Fetch users that already exist in the recover target through the edge function.
+     *
+     * The function is called with an authenticated bearer token obtained from
+     * `RECOVER_DB_USER` / `RECOVER_DB_PASSWORD` against `RECOVER_DB_URL`.
+     *
+     * @param functionUrl - Edge function URL (`.../functions/v1/list-users`)
+     * @returns Existing users returned by the edge function payload (`{ users: [...] }`)
+     */
+    async fetchRecoverDbExistingUsers(functionUrl: string): Promise<Record<string, unknown>[]> {
+        if (
+            !this.config.recoverDbUrl ||
+            !this.config.recoverDbKey ||
+            !this.config.recoverDbUser ||
+            !this.config.recoverDbPassword
+        ) {
+            throw new Error(
+                "Missing recover DB auth envs: RECOVER_DB_URL, RECOVER_DB_KEY, RECOVER_DB_USER, RECOVER_DB_PASSWORD",
+            );
+        }
+
+        const authClient = createClient(this.config.recoverDbUrl, this.config.recoverDbKey, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+            },
+        });
+        const { data, error } = await authClient.auth.signInWithPassword({
+            email: this.config.recoverDbUser,
+            password: this.config.recoverDbPassword,
+        });
+        if (error) {
+            throw error;
+        }
+        if (!data.session?.access_token) {
+            throw new Error("Could not authenticate to fetch existing users");
+        }
+
+        const response = await fetch(functionUrl, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${data.session.access_token}`,
+                apikey: this.config.recoverDbKey,
+            },
+        });
+        if (!response.ok) {
+            const responseBody = await response.text();
+            throw new Error(
+                `recover list-users function failed (${response.status}): ${responseBody}`,
+            );
+        }
+
+        const payload = (await response.json()) as {
+            users?: Record<string, unknown>[];
+        };
+        if (!Array.isArray(payload.users)) {
+            throw new Error("recover list-users function returned an invalid payload");
+        }
+        return payload.users;
+    }
+
+    /**
+     * Uses de RECOVER_DB_CREATE_USER_FUNCTION_URL to create the users.
+     * The function is called with an authenticated bearer token obtained from
+     * `RECOVER_DB_USER` / `RECOVER_DB_PASSWORD` against `RECOVER_DB_URL`.
+     * @param functionUrl - Edge function URL (`.../functions/v1/create-user`)
+     * @param users - The users to create.
+     */
+    async createRecoverDbUsers(functionUrl: string, users: Record<string, unknown>[]): Promise<void> {
+        if (
+            !this.config.recoverDbUrl ||
+            !this.config.recoverDbKey ||
+            !this.config.recoverDbUser ||
+            !this.config.recoverDbPassword
+        ) {
+            throw new Error(
+                "Missing recover DB auth envs: RECOVER_DB_URL, RECOVER_DB_KEY, RECOVER_DB_USER, RECOVER_DB_PASSWORD",
+            );
+        }
+
+        const authClient = createClient(this.config.recoverDbUrl, this.config.recoverDbKey, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+            },
+        });
+        const { data, error } = await authClient.auth.signInWithPassword({
+            email: this.config.recoverDbUser,
+            password: this.config.recoverDbPassword,
+        });
+        if (error) {
+            throw error;
+        }
+        if (!data.session?.access_token) {
+            throw new Error("Could not authenticate to create users");
+        }
+
+        const allowedRoles = new Set([
+            "manager",
+            "chef_projet",
+            "prospecteur",
+            "teleprospecteur",
+            "support",
+        ]);
+
+        for (const user of users) {
+            const email = typeof user.email === "string" ? user.email.trim() : "";
+            if (!email) {
+                console.warn("Skipping user creation: missing email", user);
+                continue;
+            }
+
+            const fullName = typeof user.full_name === "string" && user.full_name.trim().length > 0
+                ? user.full_name.trim()
+                : email;
+
+            const rawRoles = Array.isArray(user.roles)
+                ? user.roles.filter((role): role is string => typeof role === "string")
+                : [];
+            const role = rawRoles.find((r) => allowedRoles.has(r)) ?? "support";
+
+            // Password is required by the edge function contract; user will be forced to change it.
+            const tempPassword = `Tmp#${Math.random().toString(36).slice(2, 10)}A1!`;
+
+            const response = await fetch(functionUrl, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${data.session.access_token}`,
+                    apikey: this.config.recoverDbKey,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    email,
+                    password: tempPassword,
+                    full_name: fullName,
+                    role,
+                }),
+            });
+
+            if (!response.ok) {
+                const responseBody = await response.text();
+                throw new Error(
+                    `recover create-user function failed for ${email} (${response.status}): ${responseBody}`,
+                );
+            }
+        }
+    }
+
+    /**
      * Plays a migration SQL statement.
      *
      * @param sql - The SQL statement to play.
