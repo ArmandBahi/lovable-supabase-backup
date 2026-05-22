@@ -23,7 +23,14 @@ export type LovableSupabaseBackupConfig = {
   recoverPgPassword: string;
   recoverPgDatabase: string;
   listUsersFunctionUrl?: string;
+  recoverDbUrl?: string;
+  recoverDbKey?: string;
+  recoverDbUser?: string;
+  recoverDbUserId?: string;
+  recoverDbPassword?: string;
   postRecoverySql?: string;
+  recoverDbListUsersFunctionUrl?: string;
+  recoverDbCreateUserFunctionUrl?: string;
 };
 
 for (const key of [
@@ -61,7 +68,14 @@ const config: LovableSupabaseBackupConfig = {
   recoverPgUser: process.env.RECOVER_PG_USER as string,
   recoverPgPassword: process.env.RECOVER_PG_PASSWORD as string,
   recoverPgDatabase: process.env.RECOVER_PG_DATABASE as string,
+  recoverDbUrl: process.env.RECOVER_DB_URL as string | undefined,
+  recoverDbKey: process.env.RECOVER_DB_KEY as string | undefined,
+  recoverDbUser: process.env.RECOVER_DB_USER as string | undefined,
+  recoverDbUserId: process.env.RECOVER_DB_USER_ID as string | undefined,
+  recoverDbPassword: process.env.RECOVER_DB_PASSWORD as string | undefined,
   postRecoverySql: process.env.POST_RECOVERY_SQL as string | undefined,
+  recoverDbListUsersFunctionUrl: process.env.RECOVER_DB_LIST_USERS_FUNCTION_URL as string | undefined,
+  recoverDbCreateUserFunctionUrl: process.env.RECOVER_DB_CREATE_USER_FUNCTION_URL as string | undefined,
 };
 
 async function main(): Promise<void> {
@@ -137,6 +151,10 @@ async function recoverProductionDatabase(): Promise<void> {
     console.log("Connected to the recover database");
   }
 
+  /**
+   * Re-create the database
+   */
+
   // Recreate the public schema
   const success = await recoverSupabaseSrvc.recreatePublicSchema();
   if (success) {
@@ -154,12 +172,54 @@ async function recoverProductionDatabase(): Promise<void> {
   await recoverSupabaseSrvc.executeGrants();
   console.log("Grants successfully executed");
 
-  // Reimport the data from the backup files
-  const getLastBackupDatas = recoverFilesSrvc.getLastBackupDatas();
-  console.log(`Last backup tables: ${getLastBackupDatas.length}`);
-  await recoverSupabaseSrvc.importDataFromBackupDatas(getLastBackupDatas);
-  console.log(`Imported ${getLastBackupDatas.length} tables in the recover database`);
+  /**
+   * Recover the users
+   */
 
+  // Recover db user
+  if (config.recoverDbUser && config.recoverDbUserId) {
+    await recoverSupabaseSrvc.createRecoverDbAdminUser(config.recoverDbUser, config.recoverDbUserId);
+    console.log(`Recover db user created: ${config.recoverDbUser}`);
+  } else {
+    console.error("Missing recover db user credentials");
+    process.exit(1);
+  }
+
+  // Get the last backup users
+  let userIdMapping: Record<string, string> = {};
+  if (config.recoverDbListUsersFunctionUrl && config.recoverDbCreateUserFunctionUrl) {
+    const lastBackupUsers = recoverFilesSrvc.getLastBackupUsers();
+    const usersInDatabase = await recoverSupabaseSrvc.syncRecoverDbUsers(
+      config.recoverDbListUsersFunctionUrl,
+      config.recoverDbCreateUserFunctionUrl,
+      lastBackupUsers,
+    );
+    userIdMapping = recoverSupabaseSrvc.buildRecoverUserIdMapping(
+      lastBackupUsers,
+      usersInDatabase,
+    );
+    console.log(`Built user ID mapping for ${Object.keys(userIdMapping).length} users`);
+  }
+
+  /**
+   * Reimport the data from the backup files
+   */
+
+  // Get the last backup datas
+  const getLastBackupDatas = recoverFilesSrvc.getLastBackupDatas();
+
+  // Apply the user ID mapping to the backup datas
+  const mappedBackupDatas = recoverFilesSrvc.applyUserIdMappingToBackupDatas(
+    getLastBackupDatas,
+    userIdMapping,
+  );
+  console.log(`Last backup tables: ${mappedBackupDatas.length}`);
+
+  // Reimport the data from the backup files
+  await recoverSupabaseSrvc.importDataFromBackupDatas(mappedBackupDatas);
+  console.log(`Imported ${mappedBackupDatas.length} tables in the recover database`);
+
+  // Post recovery SQL
   if (config.postRecoverySql) {
     await recoverSupabaseSrvc.executePostRecoverySql(config.postRecoverySql);
   }
