@@ -5,7 +5,9 @@ import { LovableSupabaseBackupConfig } from "..";
 export type FetchTableOptions = {
   /** PostgREST select list; default `*`. */
   select?: string;
+  /** Page size used for pagination; default `1000`. */
   limit?: number;
+  /** Start offset for pagination; default `0`. */
   offset?: number;
 };
 
@@ -51,22 +53,32 @@ export class BackupsackupSupabaseService {
     T extends Record<string, unknown> = Record<string, unknown>,
   >(table: string, options?: FetchTableOptions): Promise<T[]> {
     const select = options?.select ?? "*";
-    let query = this.client.from(table).select(select);
+    const pageSize = options?.limit ?? 1000;
+    if (pageSize <= 0) {
+      throw new Error("fetchTableRows limit must be greater than 0");
+    }
+    let offset = options?.offset ?? 0;
+    const rows: T[] = [];
 
-    if (options?.limit != null && options.offset != null) {
-      query = query.range(
-        options.offset,
-        options.offset + options.limit - 1,
-      );
-    } else if (options?.limit != null) {
-      query = query.limit(options.limit);
+    while (true) {
+      const { data, error } = await this.client
+        .from(table)
+        .select(select)
+        .range(offset, offset + pageSize - 1);
+      if (error) {
+        throw error;
+      }
+
+      const batch = ((data ?? []) as unknown) as T[];
+      rows.push(...batch);
+
+      if (batch.length < pageSize) {
+        break;
+      }
+      offset += pageSize;
     }
 
-    const { data, error } = await query;
-    if (error) {
-      throw error;
-    }
-    return ((data ?? []) as unknown) as T[];
+    return rows;
   }
 
   /**
